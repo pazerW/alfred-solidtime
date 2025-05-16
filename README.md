@@ -29,3 +29,10 @@
 ### License
 
 This project is open-source and available under the MIT License.
+
+### Update 
+
+### 2025-05-15
+
+1. 日报生成中，增加OmniFocus在报告生成周期内放弃的Task
+2. 周报生成中，增加OmniFocus在报告生成周期内放弃的Task

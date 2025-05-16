@@ -36,9 +36,22 @@ except FileNotFoundError:
     API_TOKEN = None
 
 ORGANIZATION_ID = None  # 全局变量，用于缓存组织ID
+                                                       
+
+# 可删除缓存目录
+DELETABLE_CACHE_DIR = "/tmp/swiftbar/solidtime/tmp/"
+# 不可删除缓存目录
+UNDELETABLE_CACHE_DIR = "/tmp/swiftbar/solidtime/"
+
+BASH_COMMOND_STRING = "param2='&&' param3='sleep' param4='30' param5='&&' param6='rm' param7='-rf' param8='{DELETABLE_CACHE_DIR}' refresh=true terminal=false"
+
+def get_cache_dir(deletable=True):
+    return DELETABLE_CACHE_DIR if deletable else UNDELETABLE_CACHE_DIR
 
 # 缓存字典
 CACHE = {}
+# 最后请求时间记录请求时间
+REQUEST_TIME = ""
 
 def api_request(endpoint, method="GET", data=None, use_cache=True, cache_duration=60*60):
     """
@@ -59,7 +72,8 @@ def api_request(endpoint, method="GET", data=None, use_cache=True, cache_duratio
     if use_cache:
         # 将缓存键转换为文件名
         sanitized_cache_key = re.sub(r'[^\w\-_.]', '_', cache_key)
-        cache_file = f"./tmp/swiftbar/solidtime/{sanitized_cache_key}_solidtime_cache.json"
+        TMP_PATH = get_cache_dir()
+        cache_file = f"{TMP_PATH}{sanitized_cache_key}_solidtime_cache.json"
         try:
             # 读取缓存文件
             with open(cache_file, "r") as f:
@@ -85,7 +99,8 @@ def api_request(endpoint, method="GET", data=None, use_cache=True, cache_duratio
         if use_cache:
             # 将响应缓存到本地文件
             sanitized_cache_key = re.sub(r'[^\w\-_.]', '_', cache_key)
-            cache_file = f"./tmp/swiftbar/solidtime/{sanitized_cache_key}_solidtime_cache.json"
+            TMP_PATH = get_cache_dir()
+            cache_file = f".{TMP_PATH}{sanitized_cache_key}_solidtime_cache.json"
             try:
                 # 确保缓存目录存在
                 os.makedirs(os.path.dirname(cache_file), exist_ok=True)
@@ -131,6 +146,9 @@ def get_organization_id():
 def get_active_time_entry():
     """获取当前是否存在正在计时的任务"""
     response = api_request("/users/me/time-entries/active", use_cache=False)
+    # 记录请求时间为小时:分钟格式
+    global REQUEST_TIME
+    REQUEST_TIME = time.strftime("%H:%M:%S", time.localtime())
     if "error" in response:
         return None
     return response.get("data")
@@ -155,14 +173,17 @@ def format_time_entry(entry,task,duration):
     """格式化时间条目为Alfred URL"""
     # 格式化开始时间为 "2025年05月15日 12:51"
     start_time = time.strptime(entry['start'], "%Y-%m-%dT%H:%M:%SZ")
-    formatted_start_time = time.strftime("%Y年%m月%d日 %H:%M", start_time)
+    # 将UTC时间转换为本地时间
+    utc_start_time = calendar.timegm(start_time)
+    local_start_time = time.localtime(utc_start_time)
+    formatted_start_time = time.strftime("%Y年%m月%d日 %H:%M", local_start_time)
 
     # 获取当前时间并格式化为 "13:11"
     current_time = time.strftime("%H:%M", time.localtime())
-
+    timeText = f"【用时】\n\n{formatted_start_time} - {current_time} 持续：{duration}"
     argument = {
         "title": task,
-        "subtitle": f"时间：{formatted_start_time} - {current_time} \n\n持续：{duration}\n\n{entry.get('description', '')}",
+        "subtitle": f"{entry.get('description', '')}\n\n{timeText}\n\n【总结】：\n",
         "type": "SOLIDTIME_TIME_ENTRY",
         "stprojectid": entry.get("project_id"),
         "sttaskid": entry.get("task_id"),
@@ -189,7 +210,28 @@ def format_project_arg(title,project_id):
     return f"alfred://runtrigger/com.pazer.timeentry/timeentry/?argument={encoded_argument}"
 
 
-def cache_handler(cache_key, data=None, cache_duration=3600):
+# {
+#     "title": "📜工具",
+#     "subtitle": " 📅485391小时前 耗时:不到1分钟 【目标】：\n\n【预期时间】：\n\n\nSolidTime 流程中加入重复上一次任务的功能；\n\nAlfred 流程；\n\nSwiftBar 按钮",
+#     "type": "SOLIDTIME_HISTORY",
+#     "sttaskid": "f0718da3-54cc-4d26-9ff6-d66780daa159",
+#     "stprojectid": "02d8297d-3544-43d7-90ed-4d6db604c5dc"
+# }
+def format_history_arg(title,task_id,project_id):
+    argument = {
+        "title": title,
+        "type": "SOLIDTIME_HISTORY",
+        "sttaskid": task_id,
+        "stprojectid": project_id,
+    }
+    # 使用 urllib.parse.quote 进行标准 URL 编码（包括处理特殊字符、换行）
+    argument_json = json.dumps(argument, ensure_ascii=False, separators=(',', ':'))
+    encoded_argument = urllib.parse.quote(argument_json, safe='')
+
+    # 构造 Alfred Trigger URL
+    return f"alfred://runtrigger/com.pazer.timeentry/timeentry/?argument={encoded_argument}"
+
+def cache_handler(cache_key, data=None, cache_duration=3600,deletable=True):
         """
         处理缓存的读取和写入
         :param cache_key: 缓存键
@@ -198,7 +240,8 @@ def cache_handler(cache_key, data=None, cache_duration=3600):
         :return: 如果是读取操作，返回缓存数据；如果是写入操作，返回 True
         """
         sanitized_cache_key = re.sub(r'[^\w\-_.]', '_', cache_key)
-        cache_file = f"./tmp/swiftbar/solidtime/{sanitized_cache_key}_solidtime_cache.json"
+        TMP_PATH = get_cache_dir(deletable)
+        cache_file = f".{TMP_PATH}{sanitized_cache_key}_solidtime_cache.json"
         current_time = time.time()
 
         if data is None:
@@ -237,9 +280,9 @@ def main():
         print("Error: 无法获取组织信息")
         return
     active_entry = get_active_time_entry()
-
     if active_entry:
-        result = cache_handler("active_entry", None, 60*60)
+        active_cache_key = "active_entry" + active_entry["task_id"]
+        result = cache_handler(active_cache_key, None, 60*60)
         if result is None:
             tasks = get_tasks(active_entry["project_id"], organization_id) 
             # 根据entry 的 task_id 获取任务
@@ -260,12 +303,15 @@ def main():
             duration = f"⌛️ {minutes} 分钟"
         
         argument = format_time_entry(active_entry, result["task_name"], duration)
-        cache_handler("active_entry", result, 60*60)
-        bash_command = f"bash='open' param1={argument} param2='&&' param3='sleep' param4='30' param5='&&' param6='rm' param7='-rf' param8='/tmp/swiftbar/solidtime/' refresh=true terminal=false"
+        cache_handler(active_cache_key, result, 60*60)
+        active_entry["title"] = result["task_name"]
+        cache_handler("recent_entry", active_entry, deletable=False)
+        bash_command = f"bash='open' param1={argument} {BASH_COMMOND_STRING}"
         tooltip = result['description']
         print(f"🎯 {result['task_name']} {duration} ")
-        print(f"---")
+
         print(f"📝 任务描述 | {result['description']}")
+        print(f"---")
         print(f"🟥 停止计时 | {bash_command}") 
     else:
         result = cache_handler("projects", None, 60*60)
@@ -275,25 +321,36 @@ def main():
             result = projects
             cache_handler("projects", result, 60*60)
         project_list = []
-        script_path = os.path.abspath(__file__).replace(" ", "\\ ")
         for project in result:
             project_name = project['name']
             project_id = project['id']
             arg = format_project_arg(project_name, project_id)
-            project_list.append(f"📁 {project_name} | bash='open' param1={arg} param2='&&' param3='sleep' param4='30' param5='&&' param6='rm' param7='-rf' param8='/tmp/swiftbar/solidtime/' refresh=true terminal=false")
+            project_list.append(f"📁 {project_name} | bash='open' param1={arg} {BASH_COMMOND_STRING}")
         
         print(f"📁 项目列表")
-        print(f"🏢 PazerStudio | href='https://pazergame.com'")
         print(f"---")
+        recentItem = cache_handler("recent_entry", None, 3600*60,deletable=False)
+        if recentItem:
+            herf = format_history_arg(recentItem['title'], recentItem['task_id'], recentItem['project_id'])
+            print(f"🔄 {recentItem['title']} | bash='open' param1={herf} {BASH_COMMOND_STRING}")
+            print(f"---")
+        else:
+            print(f"🔄 最近任务 ")
+            print(f"---")
         for project_entry in project_list:
             print(project_entry)
         print(f"---")
-        print(f"🧹 清除缓存 | bash='rm' param1='-rf' param2='/tmp/swiftbar/solidtime/'refresh=true terminal=false ")
-        
+
+
+        print(f"🏢 PazerStudio | href='https://pazergame.com'")
+    print(f"---")
+    TMP_PATH = get_cache_dir()
+    print(f"🧹 清除缓存 | bash='rm' param1='-rf' param2='{TMP_PATH}'refresh=true terminal=false ")
+    print(f"last time: {REQUEST_TIME}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "clear":
-        cache_dir = "./tmp/swiftbar/solidtime/"
+        cache_dir = get_cache_dir()
         print(f"清理缓存目录: {cache_dir}")
         try:
             for root, dirs, files in os.walk(cache_dir):
