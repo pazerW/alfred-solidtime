@@ -161,9 +161,9 @@ def get_projects(organization_id):
         return []
     return response.get("data", [])
 
-def get_tasks(project_id,organization_id):
+def get_tasks(project_id,organization_id,use_cache=True):
     """获取项目下的所有任务"""
-    response = api_request(f"/organizations/{organization_id}/tasks?project_id={project_id}")
+    response = api_request(f"/organizations/{organization_id}/tasks?project_id={project_id}",use_cache=use_cache)
     if "error" in response:
         print(f"Error: {response['error']}")
         return []
@@ -281,7 +281,7 @@ def main():
         return
     active_entry = get_active_time_entry()
     if active_entry:
-        active_cache_key = "active_entry" + active_entry["task_id"]
+        active_cache_key = "active_entry" + active_entry["id"]
         result = cache_handler(active_cache_key, None, 60*60)
         if result is None:
             tasks = get_tasks(active_entry["project_id"], organization_id) 
@@ -293,24 +293,59 @@ def main():
                         result["task_name"] = task['name']
                         result["description"] = active_entry['description']
                         break
+                if not result:
+                    tasks = get_tasks(active_entry["project_id"], organization_id,use_cache=False)
+                    for task in tasks:
+                        if task["id"] == active_entry["task_id"]:
+                            result["task_name"] = task['name']
+                            result["description"] = active_entry['description']
+                            break 
             result["start_time"] = active_entry["start"]
         elapsed = int((time.time() - calendar.timegm(time.strptime(result["start_time"], "%Y-%m-%dT%H:%M:%SZ"))) / 60)
         hours, minutes = divmod(elapsed, 60)
         duration = ""
         if hours > 0:
-            duration = f"⌛️ {hours} 小时 {minutes} 分钟"
+            duration = f"{hours} 小时 {minutes} 分钟"
         else:
-            duration = f"⌛️ {minutes} 分钟"
+            duration = f"{minutes} 分钟"
         
         argument = format_time_entry(active_entry, result["task_name"], duration)
         cache_handler(active_cache_key, result, 60*60)
         active_entry["title"] = result["task_name"]
         cache_handler("recent_entry", active_entry, deletable=False)
         bash_command = f"bash='open' param1={argument} {BASH_COMMOND_STRING}"
-        tooltip = result['description']
-        print(f"🎯 {result['task_name']} {duration} ")
+        # 计算进度条
+        # duration 形如 "⌛️ 2 小时 5 分钟" 或 "⌛️ 5 分钟"
+        total_minutes = 0
+        match = re.search(r"(\d+)\s*小时", duration)
+        if match:
+            total_minutes += int(match.group(1)) * 60
+        match = re.search(r"(\d+)\s*分钟", duration)
+        if match:
+            total_minutes += int(match.group(1))
+        percent = int((total_minutes / 25) * 100)
+        blocks = 10
+        filled = min(blocks, max(0, int(total_minutes / 2.5)))
+        # 选择颜色
+        # 进度条颜色和样式
+        if percent >= 110:
+            bar = "🟥" * blocks  # 超时
+        elif percent >= 100:
+            bar = "🟩" * blocks  # 完成
+        elif percent >= 80:
+            bar = "🟩" * filled + "◻️" * (blocks - filled)  # 绿色进度
+        elif percent >= 60:
+            bar = "🟨" * filled + "◻️" * (blocks - filled)  # 黄色进度
+        elif percent >= 30:
+            bar = "🟦" * filled + "◻️" * (blocks - filled)  # 蓝色进度
+        elif percent >= 10:
+            bar = "🟧" * filled + "◻️" * (blocks - filled)  # 橙色进度
+        else:
+            bar = "◻️" * blocks  # 空进度
+        percent_display = percent
+        print(f"🎯 {result['task_name']} {bar}{percent_display}% {duration} | dropdown=false ")
 
-        print(f"📝 任务描述 | {result['description']}")
+        print(f"📝 任务描述 | {result['description']} | herf=''")
         print(f"---")
         print(f"🟥 停止计时 | {bash_command}") 
     else:
