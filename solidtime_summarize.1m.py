@@ -313,7 +313,8 @@ def main():
     # 数字替换为 emoji
 
 
-    print(f"⏰**{num_to_emoji(total_duration)}**  🍅**{num_to_emoji(total_count)}**个 | md=true font=Menlo size=13 color=#727475")
+    # 将时间中的冒号替换为中文冒号
+    print(f"⏰**{ num_to_emoji(str(total_duration))}**  🍅**{num_to_emoji(total_count)}**个 | md=true font=Menlo size=13 color=#ffffff")
     
     tag,project =  analyze_time_entries(entries)
     print(f"---")
