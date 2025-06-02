@@ -324,24 +324,21 @@ def main():
         if match:
             total_minutes += int(match.group(1))
         percent = int((total_minutes / 25) * 100)
-        blocks = 10
-        filled = min(blocks, max(0, int(total_minutes / 2.5)))
+        blocks = 5
+        filled = min(blocks, max(0, int(percent / 10 / 2)))
+        blocks -= filled
         # 选择颜色
         # 进度条颜色和样式
-        if percent >= 110:
-            bar = "🟥" * blocks  # 超时
+        if percent >= 200:
+            bar = "⛔️" * blocks  # 超时
+        elif percent >= 160:
+            bar = "🟥" * blocks
+        elif percent >= 120:
+            bar = "🟨" * blocks
         elif percent >= 100:
-            bar = "🟩" * blocks  # 完成
-        elif percent >= 80:
-            bar = "🟩" * filled + "◻️" * (blocks - filled)  # 绿色进度
-        elif percent >= 60:
-            bar = "🟨" * filled + "◻️" * (blocks - filled)  # 黄色进度
-        elif percent >= 30:
-            bar = "🟦" * filled + "◻️" * (blocks - filled)  # 蓝色进度
-        elif percent >= 10:
-            bar = "🟧" * filled + "◻️" * (blocks - filled)  # 橙色进度
+            bar = "🟩" * blocks
         else:
-            bar = "◻️" * blocks  # 空进度
+            bar = "🟦" * filled + "◻️" * blocks  # 空进度
         percent_display = percent
         print(f"🎯 {result['task_name']} {bar}{percent_display}% {duration} | dropdown=false ")
 
@@ -380,8 +377,7 @@ def main():
         print(f"🏢 PazerStudio | href='https://pazergame.com'")
     print(f"---")
     TMP_PATH = get_cache_dir()
-    print(f"🧹 清除缓存 | bash='rm' param1='-rf' param2='{TMP_PATH}'refresh=true terminal=false ")
-    print(f"last time: {REQUEST_TIME}")
+    print(f"🧹 清除缓存 - last time: {REQUEST_TIME} | bash='rm' param1='-rf' param2='{TMP_PATH}'refresh=true terminal=false ")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "clear":
