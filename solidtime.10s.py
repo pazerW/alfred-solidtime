@@ -302,6 +302,7 @@ def main():
                             break 
             result["start_time"] = active_entry["start"]
         elapsed = int((time.time() - calendar.timegm(time.strptime(result["start_time"], "%Y-%m-%dT%H:%M:%SZ"))) / 60)
+        seconds = int((time.time() - calendar.timegm(time.strptime(result["start_time"], "%Y-%m-%dT%H:%M:%SZ"))))
         hours, minutes = divmod(elapsed, 60)
         duration = ""
         if hours > 0:
@@ -326,11 +327,16 @@ def main():
         percent = int((total_minutes / 25) * 100)
         blocks = 5
         filled = min(blocks, max(0, int(percent / 10 / 2)))
-        blocks -= filled
         # 选择颜色
         # 进度条颜色和样式
+        
+        if percent >= 3600 and percent < 3610:
+            # alfred://runtrigger/com.pazer.token/playsound/
+            # 打开URL
+            os.system("open 'alfred://runtrigger/com.pazer.token/playsound/'")
+        
         if percent >= 200:
-            bar = "⛔️" * blocks  # 超时
+            bar = "🚨" * blocks  # 超时
         elif percent >= 160:
             bar = "🟥" * blocks
         elif percent >= 120:
@@ -338,9 +344,10 @@ def main():
         elif percent >= 100:
             bar = "🟩" * blocks
         else:
+            blocks -= filled
             bar = "🟦" * filled + "◻️" * blocks  # 空进度
         percent_display = percent
-        print(f"🎯 {result['task_name']} {bar}{percent_display}% {duration} | dropdown=false ")
+        print(f"🎯 {result['task_name']} {bar}{percent_display}% {duration}| dropdown=false ")
 
         print(f"📝 任务描述 | {result['description']} | herf=''")
         print(f"---")
