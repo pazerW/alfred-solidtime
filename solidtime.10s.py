@@ -345,7 +345,7 @@ def main():
             bar = "🟩" * blocks
         else:
             blocks -= filled
-            bar = "🟦" * filled + "◻️" * blocks  # 空进度
+            bar = "🟦" * filled + "🔲" * blocks  # 空进度
         percent_display = percent
         print(f"🎯 {result['task_name']} {bar}{percent_display}% {duration}| dropdown=false ")
 

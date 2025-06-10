@@ -154,9 +154,10 @@ def get_projects(organization_id):
 
 def get_tasks(project_id,organization_id):
     """获取项目下的所有任务"""
+    if project_id is None:
+        return []
     response = api_request(f"/organizations/{organization_id}/tasks?project_id={project_id}")
     if "error" in response:
-        print(f"Error: {response['error']}")
         return []
     return response.get("data", [])
 
@@ -307,7 +308,6 @@ def num_to_emoji(num_str):
 def main():
     organization_id = get_organization_id()
     if not organization_id:
-        print("Error: 无法获取组织信息")
         return
     total_duration ,total_count ,entries =  summarize_time_entries(get_today_time_entries(organization_id))
     # 数字替换为 emoji
