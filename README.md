@@ -36,3 +36,7 @@ This project is open-source and available under the MIT License.
 
 1. 日报生成中，增加OmniFocus在报告生成周期内放弃的Task
 2. 周报生成中，增加OmniFocus在报告生成周期内放弃的Task
+
+### 2025-08-18
+
+1. 增加距离上次记录的间隔时间；（休息时间）

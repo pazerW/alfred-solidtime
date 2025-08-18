@@ -153,6 +153,13 @@ def get_active_time_entry():
         return None
     return response.get("data")
 
+def get_last_time_entry(organization_id):
+    """获取最后一个时间条目"""
+    response = api_request(f"/organizations/{organization_id}/time-entries?limit=1", use_cache=False)
+    if "error" in response:
+        return None
+    return response.get("data")
+
 def get_projects(organization_id):
     """获取组织下的所有项目"""
     response = api_request(f"/organizations/{organization_id}/projects")
@@ -365,8 +372,28 @@ def main():
             project_id = project['id']
             arg = format_project_arg(project_name, project_id)
             project_list.append(f"📁 {project_name} | bash='open' param1={arg} {BASH_COMMOND_STRING}")
-        
-        print(f"📁 项目列表")
+        lastTime = get_last_time_entry(organization_id)
+        # 计算 lastTime[0]['end'] 距离当前时间的时间差（分钟/小时/天）
+        if lastTime and isinstance(lastTime, list) and len(lastTime) > 0 and 'end' in lastTime[0]:
+            end_time_str = lastTime[0]['end']
+            try:
+                end_time_struct = time.strptime(end_time_str, "%Y-%m-%dT%H:%M:%SZ")
+                end_timestamp = calendar.timegm(end_time_struct)
+                now_timestamp = time.time()
+                diff_seconds = int(now_timestamp - end_timestamp)
+                if diff_seconds < 60:
+                    diff_text = f"{diff_seconds}秒前"
+                elif diff_seconds < 3600:
+                    diff_text = f"{diff_seconds // 60}分钟前"
+                elif diff_seconds < 86400:
+                    diff_text = f"{diff_seconds // 3600}小时前"
+                else:
+                    diff_text = f"{diff_seconds // 86400}天前"
+                print(f"🔥 开始工作 - 距上次：{diff_text}")
+            except Exception as e:
+                print(f"🔥 开始工作")
+        else:
+            print(f"📁 项目列表")
         print(f"---")
         recentItem = cache_handler("recent_entry", None, 3600*60,deletable=False)
         if recentItem:
