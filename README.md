@@ -26,6 +26,10 @@
 - Optional: OmniFocus integration.
 - Optional: SwiftBar integration.
 
+![](img/1.png)
+![](img/2.png)
+![](img/3.png)
+
 ### License
 
 This project is open-source and available under the MIT License.
