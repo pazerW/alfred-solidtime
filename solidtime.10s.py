@@ -381,7 +381,9 @@ def main():
                 end_timestamp = calendar.timegm(end_time_struct)
                 now_timestamp = time.time()
                 diff_seconds = int(now_timestamp - end_timestamp)
-                if diff_seconds < 60:
+                if diff_seconds < 30:
+                    diff_text = f"刚刚结束"
+                elif diff_seconds < 60:
                     diff_text = f"{diff_seconds}秒前"
                 elif diff_seconds < 3600:
                     diff_text = f"{diff_seconds // 60}分钟前"
